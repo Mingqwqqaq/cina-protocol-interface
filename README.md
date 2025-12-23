@@ -1,4 +1,4 @@
-# CINA protocol interface
+# CINA Protocol Interface
 
 WRMB Dapp. A modern, responsive decentralized application (DApp) for WRMB, built with Vue 3, TypeScript, and Web3 technologies.
 
