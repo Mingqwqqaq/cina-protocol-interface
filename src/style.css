@@ -1,0 +1,471 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light mode colors from image */
+  --primary-color: #343A6C; /* 主题主色（浅色模式-蓝色系） */
+  --accent-color: #4a63c7; /* 强调色（浅色模式-深蓝） */
+  --number-color: #363845; /* 大数字/主标题 */
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --text-primary: #363845; /* 主要文字 */
+  --text-secondary: #777777; /* 次要文字 */
+  --heading-muted: #343A6C; /* 小标题 */
+  --bg-primary: #A6BAD0; /* 页面底色 */
+  --bg-secondary: #E8EDF9; /* 页面外层浅底色 */
+  --card-bg: #ffffff; /* 卡片背景 */
+  --button-bg: #E8EDF9; /* 按钮背景 */
+  --button-text: #343A6C; /* 按钮文字 */
+  --border-color: #d7dde9; /* 边框 */
+  
+  /* 浅色主题专用按钮色彩 */
+  --button-primary-bg: #E8EDF9;
+  --button-primary-text: #343A6C;
+  --button-primary-hover: #E8EDF9;
+  --button-primary-active: #E8EDF9; /* 新增：主按钮按下色 */
+}
+
+.dark {
+  /* Dark mode colors from image */
+  --primary-color: #EBB257; /* 主题主色（深色-黄色） */
+  --accent-color: #EBB257; /* 强调色（深色-黄色） */
+  --number-color: #EBB257; /* 大数字/主标题-黄色 */
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --text-primary: #C4C1C2; /* 主要文字（深色） */
+  --text-secondary: #B8B257; /* 次要文字（深色-黄色调） */
+  --heading-muted: #C4C1C2; /* 小标题（深色） */
+  --bg-primary: #1C1310; /* 页面主体底色 */
+  --bg-secondary: #262531; /* 页面外层/顶栏底色 */
+  --card-bg: #2F3D47; /* 卡片背景（深色） */
+  --button-bg: #D2C7A4; /* 按钮背景（深色） */
+  --button-text: #1C1310; /* 按钮文字（深色-深色背景） */
+  --border-color: #58524a; /* 边框（深色） */
+  
+  /* 深色主题专用按钮色彩 */
+  --button-primary-bg: #EBB257;
+  --button-primary-text: #1C1310;
+  --button-primary-hover: #d19942;
+  --button-primary-active: #b97f2d; /* 新增：主按钮按下色（深色） */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 可复用的主题工具类（按需在组件中使用） */
+.text-accent { color: var(--accent-color); }
+.text-number { color: var(--number-color); }
+.bg-card { background-color: var(--card-bg); }
+.bg-app { background-color: var(--bg-primary); }
+.btn-themed { background-color: var(--button-bg); color: var(--button-text); }
+.border-themed { border-color: var(--border-color); }
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Animation utilities */
+.animate-number {
+  transition: all 0.3s ease;
+}
+
+.glass-effect {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-effect {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Custom button styles */
+.btn-gradient {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  transition: all 0.3s ease;
+}
+
+.btn-gradient:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+}
+
+/* Card styles */
+.card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.dark .card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark .card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Loading states */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200% 100%;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .card {
+    padding: 16px;
+  }
+}
+
+/* Element Plus customization */
+.el-button {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.el-input__wrapper {
+  border-radius: 8px;
+}
+
+.el-card {
+  border-radius: 12px;
+}
+
+.el-dialog {
+  border-radius: 12px;
+}
+
+/* Custom number input */
+.number-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+:root {
+  /* Element Plus theme variable mapping */
+  --el-color-primary: var(--primary-color) !important;
+  --el-color-success: var(--success-color) !important;
+  --el-color-warning: var(--warning-color) !important;
+  --el-color-danger: var(--error-color) !important;
+  --el-text-color-primary: var(--text-primary) !important;
+  --el-text-color-regular: var(--text-secondary) !important;
+  --el-text-color-secondary: var(--text-secondary) !important;
+  --el-border-color: var(--border-color) !important;
+  --el-border-color-light: var(--border-color) !important;
+  --el-bg-color-page: var(--bg-primary) !important;
+  --el-bg-color: var(--card-bg) !important;
+  --el-fill-color-blank: var(--card-bg) !important;
+  --el-fill-color-light: var(--bg-secondary) !important;
+  --el-disabled-text-color: var(--text-secondary) !important;
+  
+  /* Element Plus 颜色辅助变量 */
+  --el-color-primary-light-3: color-mix(in srgb, var(--primary-color) 60%, white 40%) !important;
+  --el-color-primary-light-5: color-mix(in srgb, var(--primary-color) 50%, white 50%) !important;
+  --el-color-primary-light-7: color-mix(in srgb, var(--primary-color) 30%, white 70%) !important;
+  --el-color-primary-light-8: color-mix(in srgb, var(--primary-color) 20%, white 80%) !important;
+  --el-color-primary-light-9: color-mix(in srgb, var(--primary-color) 10%, white 90%) !important;
+}
+
+.dark {
+  /* Element Plus theme variable mapping (dark) */
+  --el-color-primary: var(--primary-color) !important;
+  --el-color-success: var(--success-color) !important;
+  --el-color-warning: var(--warning-color) !important;
+  --el-color-danger: var(--error-color) !important;
+  --el-text-color-primary: var(--text-primary) !important;
+  --el-text-color-regular: var(--text-secondary) !important;
+  --el-text-color-secondary: var(--text-secondary) !important;
+  --el-border-color: var(--border-color) !important;
+  --el-border-color-light: var(--border-color) !important;
+  --el-bg-color-page: var(--bg-primary) !important;
+  --el-bg-color: var(--card-bg) !important;
+  --el-fill-color-blank: var(--card-bg) !important;
+  --el-fill-color-light: var(--bg-primary) !important;
+  --el-disabled-text-color: var(--text-secondary) !important;
+  
+  /* Element Plus 颜色辅助变量 (深色主题) */
+  --el-color-primary-light-3: color-mix(in srgb, var(--primary-color) 70%, black 30%) !important;
+  --el-color-primary-light-5: color-mix(in srgb, var(--primary-color) 60%, black 40%) !important;
+  --el-color-primary-light-7: color-mix(in srgb, var(--primary-color) 40%, black 60%) !important;
+  --el-color-primary-light-8: color-mix(in srgb, var(--primary-color) 30%, black 70%) !important;
+  --el-color-primary-light-9: color-mix(in srgb, var(--primary-color) 20%, black 80%) !important;
+}
+
+/* Element Plus component overrides (light & dark) */
+.el-button--primary {
+  background-color: var(--button-primary-bg);
+  border-color: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  font-weight: 600;
+}
+/* 主按钮悬停和聚焦状态 - 添加字体加粗 */
+.el-button--primary:hover:not(.is-disabled),
+.el-button--primary:focus:not(.is-disabled) {
+  background-color: var(--button-primary-hover);
+  border-color: var(--button-primary-hover);
+  filter: none;
+  font-weight: 600;
+}
+/* 新增：主按钮按下态 - 添加字体加粗 */
+.el-button--primary:active:not(.is-disabled) {
+  background-color: var(--button-primary-active);
+  border-color: var(--button-primary-active);
+  filter: none;
+  font-weight: 600;
+  /* box-shadow: 0 2px 8px color-mix(in srgb, var(--primary-color) 40%, transparent 60%); */
+}
+.el-button--primary.is-disabled,
+.el-button--primary.is-disabled:hover,
+.el-button--primary.is-disabled:focus {
+  background-color: var(--text-secondary) !important;
+  border-color: var(--text-secondary) !important;
+  color: var(--card-bg) !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  filter: none !important;
+}
+
+/* 默认按钮按下态（非主按钮、非文字/链接按钮） - 添加字体加粗 */
+.el-button:active:not(.is-disabled):not(.el-button--primary):not(.is-text):not(.is-link) {
+  background-color: var(--bg-secondary) !important;
+  /* border-color: var(--primary-color) !important; */
+  color: var(--button-primary-text) !important;
+  box-shadow: none !important;
+  font-weight: 600;
+}
+
+/* Default button disabled state */
+.el-button.is-disabled,
+.el-button.is-disabled:hover,
+.el-button.is-disabled:focus {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-secondary) !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+.el-button:hover:not(.is-disabled) {
+  color: var(--button-primary-text) !important;
+  font-weight: 600;
+}
+
+.el-button--text {
+  color: var(--text-secondary);
+}
+
+.el-button--text:hover {
+  color: var(--button-primary-text) !important;
+  font-weight: 600;
+}
+.el-button--text:not(.is-disabled):active {
+  color: var(--button-primary-text) !important;
+  font-weight: 600;
+}
+
+/* Text buttons use theme color */
+.el-button.is-text,
+.el-button.is-link {
+  color: var(--text-secondary);
+}
+.el-button.is-text:hover:not(.is-disabled),
+.el-button.is-link:hover:not(.is-disabled) {
+  color: var(--button-primary-text) !important;
+  background-color: transparent;
+  font-weight: 600;
+}
+/* 新增：文字/链接按钮按下态 - 添加字体加粗 */
+.el-button.is-text:active:not(.is-disabled),
+.el-button.is-link:active:not(.is-disabled) {
+  color: var(--accent-color);
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.el-button.is-text.is-disabled,
+.el-button.is-link.is-disabled {
+  color: var(--text-secondary);
+  background-color: transparent;
+  cursor: not-allowed;
+}
+
+/* Inputs & Selects */
+.el-input__wrapper,
+.el-select .el-input__wrapper {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: none !important;
+}
+.el-input__wrapper:hover,
+.el-select .el-input__wrapper:hover {
+  border-color: var(--border-color);
+}
+.el-input__wrapper.is-focus,
+.el-select .el-input__wrapper.is-focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color) inset;
+}
+.el-input__inner,
+.el-select .el-input__inner {
+  color: var(--text-primary);
+}
+/* .el-input__inner::placeholder {
+  color: var(--text-secondary);
+} */
+.el-input.is-disabled .el-input__wrapper,
+.el-select.is-disabled .el-input__wrapper {
+  background-color: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.el-input.is-disabled .el-input__inner,
+.el-select.is-disabled .el-input__inner {
+  color: var(--text-secondary);
+}
+.el-select .el-select__wrapper.is-disabled,
+.el-select .el-select__selected-item.is-disabled {
+  color: var(--text-secondary);
+}
+
+/* Cards & Dialogs */
+.el-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+.el-dialog {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+/* Tags (mapped to primary/success/warning/danger via vars) */
+.el-tag {
+  border-color: var(--border-color);
+}
+
+/* Segmented control */
+.el-segmented {
+  --el-segmented-item-selected-color: #ffffff;
+  --el-segmented-item-selected-bg-color: var(--primary-color);
+  --el-segmented-bg-color: var(--bg-primary);
+  --el-segmented-item-color: var(--text-secondary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+.el-segmented.is-disabled,
+.el-segmented .el-segmented__item.is-disabled {
+  --el-segmented-item-color: var(--text-secondary);
+  --el-segmented-item-selected-bg-color: var(--bg-primary);
+  --el-segmented-item-selected-color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Radio buttons (alternative segmented control implementation) */
+.el-radio-button__inner {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+.el-radio-button__orig-radio:checked + .el-radio-button__inner {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #ffffff;
+  font-weight: 600;
+}
+.el-radio-button.is-disabled .el-radio-button__inner,
+.el-radio-button__orig-radio:disabled + .el-radio-button__inner {
+  background-color: var(--bg-primary);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.el-radio-button:first-child .el-radio-button__inner {
+  border-left-color: var(--border-color);
+}
+
+.token-symbol-btn {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.token-symbol-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.token-symbol-text {
+  color: var(--text-secondary);
+  max-width: 6ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
