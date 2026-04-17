@@ -668,6 +668,16 @@ select {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-6px);
+  z-index: 30;
+}
+
+.app-nav-group-menu::before {
+  content: '';
+  position: absolute;
+  top: -0.5rem;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
 }
 
 .app-nav-group.is-open .app-nav-group-menu {
