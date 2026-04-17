@@ -1,23 +1,28 @@
-import { Contract, Interface } from 'ethers'
-import { useWalletStore } from '../stores/wallet'
-import { CONTRACTS, TOKENS } from '../constants'
+import { Contract, Interface, type ContractRunner } from 'ethers'
+import { CONTRACTS, TOKENS } from '@/constants'
 
-// Get contract addresses based on current chain ID
-const getContractAddresses = (chainId: number) => {
-  return {
-    SAVINGS_VAULT: CONTRACTS.SAVINGS_VAULT[chainId as keyof typeof CONTRACTS.SAVINGS_VAULT] || '',
-    WRAP_MANAGER: CONTRACTS.WRAP_MANAGER[chainId as keyof typeof CONTRACTS.WRAP_MANAGER] || '',
-    BOND_POOL: CONTRACTS.BOND_POOL[chainId as keyof typeof CONTRACTS.BOND_POOL] || '',
-    STAKING_VAULT: CONTRACTS.STAKING_VAULT[chainId as keyof typeof CONTRACTS.STAKING_VAULT] || '',
-    FARM_VAULT: CONTRACTS.FARM_VAULT[chainId as keyof typeof CONTRACTS.FARM_VAULT] || '',
-    SRMB_FACTORY: CONTRACTS.SRMB_FACTORY[chainId as keyof typeof CONTRACTS.SRMB_FACTORY] || '',
-    WRMB: TOKENS.WRMB.addresses[chainId as keyof typeof TOKENS.WRMB.addresses] || '',
-    CINA: TOKENS.CINA.addresses[chainId as keyof typeof TOKENS.CINA.addresses] || '',
-    USDT: TOKENS.USDT.addresses[chainId as keyof typeof TOKENS.USDT.addresses] || ''
-  }
+export interface Web3Context {
+  address: string
+  chainId: number
+  provider: ContractRunner | null
+  providerIdentity: string
+  signer: ContractRunner | null
+  signerIdentity: string
 }
 
-// Contract ABIs - simplified versions for the main functions
+const ERC20_ABI = [
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address, address) view returns (uint256)',
+  'function approve(address, uint256) returns (bool)',
+  'function transfer(address, uint256) returns (bool)',
+  'function transferFrom(address, address, uint256) returns (bool)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+  'function name() view returns (string)',
+  'function totalSupply() view returns (uint256)',
+  'function paused() view returns (bool)'
+]
+
 const SAVINGS_VAULT_ABI = [
   'function totalAssets() view returns (uint256)',
   'function totalSupply() view returns (uint256)',
@@ -31,24 +36,19 @@ const SAVINGS_VAULT_ABI = [
   'function previewDeposit(uint256) view returns (uint256)',
   'function previewRedeem(uint256) view returns (uint256)',
   'function previewMint(uint256) view returns (uint256)',
-  'function previewWithdraw(uint256) view returns (uint256)',
-  'function getIncrementAmount() view returns (uint256)',
-  'function getUserIncrementAmount(address) view returns (uint256)',
   'function previewWithdrawOfFee(uint256) view returns (uint256, uint256, uint256)',
   'function maxWithdraw(address) view returns (uint256)',
-  'function getCurrentYearNAVSummary() view returns (uint256 totalIncrease, uint256 averageIncrease, uint256 maxIncrease, uint256 minIncrease, uint256 recordCount, uint256 firstIncrease, uint256 lastIncrease)',
+  'function getUserIncrementAmount(address) view returns (uint256)',
+  'function getIncrementAmount() view returns (uint256)',
   'function deposit(uint256, address) returns (uint256)',
   'function redeem(uint256, address, address) returns (uint256)',
   'function withdraw(uint256, address, address) returns (uint256)',
-  'function asset() view returns (address)',
-  'event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares)',
-  'event Withdraw(address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)',
-  'event WRMBMintedOnIncrease(uint256 amount, uint256 oldNAV, uint256 newNAV)'
+  'function asset() view returns (address)'
 ]
 
 const WRAP_MANAGER_ABI = [
   'function wrap(address, uint256) returns (uint256, uint256)',
-  'function unwrap(address, uint256 sRMBAmount) returns (uint256 sWRMBBurned, uint256 sRMBReceived)',
+  'function unwrap(address, uint256) returns (uint256, uint256)',
   'function previewWrap(address, address, uint256) view returns (uint256, uint256, uint256, uint256, uint256)',
   'function previewUnwrap(address, address, uint256) view returns (uint256, uint256, uint256, uint256, uint256)',
   'function getConfiguration() view returns (address, address, uint256, uint256, uint256, uint256, uint256, uint256)',
@@ -59,15 +59,12 @@ const WRAP_MANAGER_ABI = [
   'function wrapFee() view returns (uint256)',
   'function unwrapFee() view returns (uint256)',
   'function totalWrapped() view returns (uint256)',
-  'function getSRMBLiquidity() view returns (uint256)',
+  'function getSRMBLiquidity() view returns (uint256)'
+  ,
   'function wrapAndUnwrapInterval() view returns (uint256)',
   'function totalReserveTransferred() view returns (uint256)',
   'function checkSRMBWrapActive(address) view returns (bool)',
-  'function getUserWrapStats(address, address) view returns (uint256 availableToUnwrap, uint256 userMaxUnwrappedAmount)',
-  'function userWrappedAmount(address) view returns (uint256)',
-  'function userUnwrappedAmount(address) view returns (uint256)',
-  'event Wrapped(address indexed user, uint256 sRMBAmount, uint256 sWRMBReceived, uint256 wrmBMinted, uint256 fee)',
-  'event Unwrapped(address indexed user, uint256 sWRMBAmount, uint256 sRMBReceived, uint256 wrmBBurned, uint256 fee)'
+  'function getUserWrapStats(address, address) view returns (uint256 availableToUnwrap, uint256 userMaxUnwrappedAmount)'
 ]
 
 const BOND_POOL_ABI = [
@@ -76,239 +73,196 @@ const BOND_POOL_ABI = [
   'function getUserBonds(address) view returns (uint256[], tuple(uint256 principal, uint256 wrmbAmount, uint256 subscribeTime, uint256 maturityTime, uint256 interestRate, bool isActive, bool isMatured)[])',
   'function previewSubscription(uint256) view returns (uint256, uint256, uint256)',
   'function getPoolStats() view returns (uint256, uint256, uint256)',
-  'function calculateCompoundInterest(uint256, uint256, uint256, uint256) pure returns (uint256)',
-  'function poolConfig() view returns (tuple(uint256 minSubscription, uint256 maxSubscription, uint256 bondDuration, uint256 interestRate, uint256 maxPoolSize, bool subscriptionOpen))',
-  'function bonds(uint256) view returns (tuple(uint256 principal, uint256 wrmbAmount, uint256 subscribeTime, uint256 maturityTime, uint256 interestRate, bool isActive, bool isMatured))',
-  'function userTotalPrincipal(address) view returns (uint256)',
-  'event BondSubscribed(address indexed user, uint256 indexed bondId, uint256 usdtAmount, uint256 wrmbAmount, uint256 maturityTime)',
-  'event BondMatured(address indexed user, uint256 indexed bondId, uint256 principalAmount, uint256 interestAmount, uint256 totalAmount)'
+  'function poolConfig() view returns (tuple(uint256 minSubscription, uint256 maxSubscription, uint256 bondDuration, uint256 interestRate, uint256 maxPoolSize, bool subscriptionOpen))'
 ]
 
 const STAKING_VAULT_ABI = [
-  // ERC4626 标准方法
   'function totalAssets() view returns (uint256)',
   'function totalSupply() view returns (uint256)',
   'function balanceOf(address) view returns (uint256)',
   'function maxWithdraw(address) view returns (uint256)',
-  'function deposit(uint256 assets, address receiver) returns (uint256 shares)',
-  'function withdraw(uint256 assets, address receiver, address owner) returns (uint256 shares)',
-  'function mint(uint256 shares, address receiver) returns (uint256 assets)',
-  'function redeem(uint256 shares, address receiver, address owner) returns (uint256 assets)',
-  'function previewDeposit(uint256 assets) view returns (uint256)',
-  'function previewWithdraw(uint256 assets) view returns (uint256)',
-  'function previewMint(uint256 shares) view returns (uint256)',
-  'function previewRedeem(uint256 shares) view returns (uint256)',
-  'function getTotalPendingAmount() view returns (uint256 totalPendingAmount)',
-  
-  // 质押相关查询方法
   'function getNAV_CINA() view returns (uint256)',
   'function minStakeAmount() view returns (uint256)',
   'function lastDayRewardAmount() view returns (uint256)',
   'function getIncrementAmount() view returns (uint256)',
   'function getUserIncrementAmount(address) view returns (uint256)',
-
-  // 事件
-  'event Staked(address indexed user, uint256 amount, uint256 shares)',
-  'event Unstaked(address indexed user, uint256 amount, uint256 shares, uint256 penalty)',
-  'event RewardClaimed(address indexed user, uint256 amount)',
-  'event EmergencyWithdraw(address indexed user, uint256 amount)'
+  'function getTotalPendingAmount() view returns (uint256)',
+  'function previewDeposit(uint256) view returns (uint256)',
+  'function previewWithdraw(uint256) view returns (uint256)',
+  'function previewMint(uint256) view returns (uint256)',
+  'function previewRedeem(uint256) view returns (uint256)',
+  'function deposit(uint256, address) returns (uint256)',
+  'function withdraw(uint256, address, address) returns (uint256)',
+  'function mint(uint256, address) returns (uint256)',
+  'function redeem(uint256, address, address) returns (uint256)'
 ]
 
 const FARM_VAULT_ABI = [
-  'function totalSupply() external view returns (uint256)',
-  'function balanceOf(address account) external view returns (uint256)',
-  'function earned(address account) external view returns (uint256)',
-  'function getRewardForDuration() external view returns (uint256)',
-  'function lastTimeRewardApplicable() external view returns (uint256)',
-  'function getRemainingTime() external view returns (uint256)',
-  'function rewardRate() external view returns (uint256)',
-  
-  'function deposit(uint256 amount) external',
-  'function withdraw(uint256 amount, bool isClaim) external',
-  'function getReward() external',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+  'function earned(address) view returns (uint256)',
+  'function getRewardForDuration() view returns (uint256)',
+  'function getRemainingTime() view returns (uint256)',
+  'function rewardRate() view returns (uint256)',
+  'function deposit(uint256)',
+  'function withdraw(uint256, bool)',
+  'function getReward()'
 ]
 
 const SRMB_FACTORY_ABI = [
-  'function getAllSRMBContracts() external view returns (tuple(address sRMBContract, uint256 wrappedAmount, uint256 wrappedShares, bool active)[])',
-  'function getSRMBContractsCount() external view returns (uint256)',
-  'function getSRMBContractInfo(address sRMBContract) external view returns (tuple(address sRMBContract, uint256 wrappedAmount, uint256 wrappedShares, bool active))',
-  'function isValidSRMBContract(address contractAddress) external view returns (bool)',
-  'event SRMBContractDeployed(address indexed sRMBContract, string name, string symbol, uint256 index)'
+  'function getAllSRMBContracts() view returns (tuple(address sRMBContract, uint256 wrappedAmount, uint256 wrappedShares, bool active)[])',
+  'function getSRMBContractsCount() view returns (uint256)',
+  'function getSRMBContractInfo(address) view returns (tuple(address sRMBContract, uint256 wrappedAmount, uint256 wrappedShares, bool active))',
+  'function isValidSRMBContract(address) view returns (bool)'
 ]
 
-const ERC20_ABI = [
-  'function balanceOf(address) view returns (uint256)',
-  'function allowance(address, address) view returns (uint256)',
-  'function approve(address, uint256) returns (bool)',
-  'function transfer(address, uint256) returns (bool)',
-  'function transferFrom(address, address, uint256) returns (bool)',
-  'function decimals() view returns (uint8)',
-  'function symbol() view returns (string)',
-  'function name() view returns (string)',
-  'function totalSupply() view returns (uint256)',
-  'function paused() view returns (bool)',
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)'
-]
+export function getContractAddresses(chainId: number) {
+  return {
+    SAVINGS_VAULT: CONTRACTS.SAVINGS_VAULT[chainId as keyof typeof CONTRACTS.SAVINGS_VAULT] || '',
+    WRAP_MANAGER: CONTRACTS.WRAP_MANAGER[chainId as keyof typeof CONTRACTS.WRAP_MANAGER] || '',
+    BOND_POOL: CONTRACTS.BOND_POOL[chainId as keyof typeof CONTRACTS.BOND_POOL] || '',
+    STAKING_VAULT: CONTRACTS.STAKING_VAULT[chainId as keyof typeof CONTRACTS.STAKING_VAULT] || '',
+    FARM_VAULT: CONTRACTS.FARM_VAULT[chainId as keyof typeof CONTRACTS.FARM_VAULT] || '',
+    SRMB_FACTORY: CONTRACTS.SRMB_FACTORY[chainId as keyof typeof CONTRACTS.SRMB_FACTORY] || '',
+    WRMB: TOKENS.WRMB.addresses[chainId as keyof typeof TOKENS.WRMB.addresses] || '',
+    CINA: TOKENS.CINA.addresses[chainId as keyof typeof TOKENS.CINA.addresses] || '',
+    USDT: TOKENS.USDT.addresses[chainId as keyof typeof TOKENS.USDT.addresses] || ''
+  }
+}
 
 class ContractService {
-  private contracts: Map<string, Contract> = new Map()
-  
-  private getContract(address: string, abi: string[], withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    
-    if (!walletStore.provider) {
-      console.warn('Provider not available')
-      return null
-    }
-    
-    if (!address || address === '') {
-      console.warn('Contract address not available for current network')
-      return null
-    }
-    
-    const key = `${address}_${walletStore.chainId}_${withSigner ? 'signer' : 'provider'}_${abi.length}`
-    
-    if (this.contracts.has(key)) {
-      return this.contracts.get(key)!
-    }
-    
-    try {
-      const providerOrSigner = withSigner ? walletStore.signer : walletStore.provider
-      if (!providerOrSigner) {
-        console.warn('Provider or signer not available')
-        return null
-      }
-      
-      const contract = new Contract(address, abi, providerOrSigner)
-      this.contracts.set(key, contract)
-      return contract
-    } catch (error) {
-      console.error('Failed to create contract:', error)
-      return null
-    }
-  }
-  
-  // Savings Vault Contract
-  getSavingsVaultContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.SAVINGS_VAULT, SAVINGS_VAULT_ABI, withSigner)
-  }
-  
-  // Wrap Manager Contract
-  getWrapManagerContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.WRAP_MANAGER, WRAP_MANAGER_ABI, withSigner)
-  }
-  
-  // Bond Pool Contract
-  getBondPoolContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.BOND_POOL, BOND_POOL_ABI, withSigner)
-  }
-  
-  // Token Contracts
-  getWRMBContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.WRMB, ERC20_ABI, withSigner)
-  }
-  
-  getSRMBContract(contractAddress: string, withSigner = false): Contract | null {
-    return this.getContract(contractAddress, ERC20_ABI, withSigner)
-  }
-  
-  getUSDTContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.USDT, ERC20_ABI, withSigner)
-  }
-  
-  getCINAContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.CINA, ERC20_ABI, withSigner)
-  }
-  
-  // Staking Vault Contract
-  getStakingVaultContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.STAKING_VAULT, STAKING_VAULT_ABI, withSigner)
+  private contracts = new Map<string, Contract>()
+  private context: Web3Context = {
+    address: '',
+    chainId: 0,
+    provider: null,
+    providerIdentity: '',
+    signer: null,
+    signerIdentity: ''
   }
 
-  // Farm Vault Contract
-  getFarmVaultContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.FARM_VAULT, FARM_VAULT_ABI, withSigner)
+  setContext(context: Partial<Web3Context>) {
+    this.context = {
+      ...this.context,
+      ...context
+    }
   }
-  
-  // SRMB Factory Contract
-  getSRMBFactoryContract(withSigner = false): Contract | null {
-    const walletStore = useWalletStore()
-    const addresses = getContractAddresses(walletStore.chainId)
-    return this.getContract(addresses.SRMB_FACTORY, SRMB_FACTORY_ABI, withSigner)
-  }
-  
-  // Generic ERC20 contract
-  getERC20Contract(address: string, withSigner = false): Contract | null {
-    return this.getContract(address, ERC20_ABI, withSigner)
-  }
-  
-  // Clear cached contracts (useful when switching accounts/networks)
-  clearCache(): void {
+
+  clearCache() {
     this.contracts.clear()
   }
-  
-  // Get contract addresses for current network
-  getAddresses() {
-    const walletStore = useWalletStore()
-    return getContractAddresses(walletStore.chainId)
+
+  getAddresses(chainId = this.context.chainId) {
+    return getContractAddresses(chainId)
   }
-  
-  // Get contract addresses for specific chain ID
+
   getAddressesForChain(chainId: number) {
     return getContractAddresses(chainId)
   }
-  
-  // Utility function to check if address is valid
-  isValidAddress(address: string): boolean {
+
+  isValidAddress(address: string) {
     return /^0x[a-fA-F0-9]{40}$/.test(address)
   }
-  
-  // Get contract interface for event parsing
-  getSavingsVaultInterface(): Interface {
+
+  private getRunner(withSigner: boolean) {
+    return withSigner ? this.context.signer : this.context.signer || this.context.provider
+  }
+
+  private getContract(address: string, abi: string[], withSigner = false) {
+    if (!address) {
+      return null
+    }
+
+    const runner = this.getRunner(withSigner)
+    if (!runner) {
+      return null
+    }
+
+    const runnerIdentity = withSigner
+      ? this.context.signerIdentity || this.context.address || 'signer'
+      : this.context.providerIdentity || this.context.signerIdentity || this.context.address || 'provider'
+    const key = `${address}_${this.context.chainId}_${this.context.address}_${withSigner ? 'signer' : 'provider'}_${runnerIdentity}_${abi.length}`
+    const cached = this.contracts.get(key)
+    if (cached) {
+      return cached
+    }
+
+    const contract = new Contract(address, abi, runner)
+    this.contracts.set(key, contract)
+    return contract
+  }
+
+  getSavingsVaultContract(withSigner = false) {
+    return this.getContract(this.getAddresses().SAVINGS_VAULT, SAVINGS_VAULT_ABI, withSigner)
+  }
+
+  getWrapManagerContract(withSigner = false) {
+    return this.getContract(this.getAddresses().WRAP_MANAGER, WRAP_MANAGER_ABI, withSigner)
+  }
+
+  getBondPoolContract(withSigner = false) {
+    return this.getContract(this.getAddresses().BOND_POOL, BOND_POOL_ABI, withSigner)
+  }
+
+  getWRMBContract(withSigner = false) {
+    return this.getContract(this.getAddresses().WRMB, ERC20_ABI, withSigner)
+  }
+
+  getSRMBContract(contractAddress: string, withSigner = false) {
+    return this.getContract(contractAddress, ERC20_ABI, withSigner)
+  }
+
+  getUSDTContract(withSigner = false) {
+    return this.getContract(this.getAddresses().USDT, ERC20_ABI, withSigner)
+  }
+
+  getCINAContract(withSigner = false) {
+    return this.getContract(this.getAddresses().CINA, ERC20_ABI, withSigner)
+  }
+
+  getStakingVaultContract(withSigner = false) {
+    return this.getContract(this.getAddresses().STAKING_VAULT, STAKING_VAULT_ABI, withSigner)
+  }
+
+  getFarmVaultContract(withSigner = false) {
+    return this.getContract(this.getAddresses().FARM_VAULT, FARM_VAULT_ABI, withSigner)
+  }
+
+  getSRMBFactoryContract(withSigner = false) {
+    return this.getContract(this.getAddresses().SRMB_FACTORY, SRMB_FACTORY_ABI, withSigner)
+  }
+
+  getERC20Contract(address: string, withSigner = false) {
+    return this.getContract(address, ERC20_ABI, withSigner)
+  }
+
+  getSavingsVaultInterface() {
     return new Interface(SAVINGS_VAULT_ABI)
   }
-  
-  getWrapManagerInterface(): Interface {
+
+  getWrapManagerInterface() {
     return new Interface(WRAP_MANAGER_ABI)
   }
-  
-  getBondPoolInterface(): Interface {
+
+  getBondPoolInterface() {
     return new Interface(BOND_POOL_ABI)
   }
-  
-  getERC20Interface(): Interface {
+
+  getERC20Interface() {
     return new Interface(ERC20_ABI)
   }
-  
-  getStakingVaultInterface(): Interface {
+
+  getStakingVaultInterface() {
     return new Interface(STAKING_VAULT_ABI)
   }
-  
-  getFarmVaultInterface(): Interface {
+
+  getFarmVaultInterface() {
     return new Interface(FARM_VAULT_ABI)
   }
-  
-  getSRMBFactoryInterface(): Interface {
+
+  getSRMBFactoryInterface() {
     return new Interface(SRMB_FACTORY_ABI)
   }
 }
 
 export const contractService = new ContractService()
-export { getContractAddresses }

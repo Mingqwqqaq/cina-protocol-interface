@@ -377,7 +377,7 @@ export const isValidTokenName = (name: string): boolean => {
   if (!name) return false
   
   // Token names should be 1-50 characters, allow letters, numbers, spaces, and common symbols
-  const nameRegex = /^[A-Za-z0-9\s\-\.]{1,50}$/
+  const nameRegex = /^[A-Za-z0-9\s-.]{1,50}$/
   return nameRegex.test(name.trim())
 }
 
@@ -404,7 +404,7 @@ export const validateContractAddress = async (
     const isContract = code !== '0x'
     
     return { isValid: true, isContract }
-  } catch (error) {
+  } catch {
     return { isValid: false, error: 'Failed to verify contract address' }
   }
 }

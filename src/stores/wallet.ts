@@ -1,10 +1,6 @@
-import { defineStore } from 'pinia'
-import { ref, computed, markRaw, watch } from 'vue'
-import { BrowserProvider, JsonRpcSigner, formatEther } from 'ethers'
-import { useAppStore } from './app'
-import { STORAGE_KEYS } from '../constants'
-import { SUCCESS_MESSAGES, UI_CONSTANTS, NETWORKS, ENV } from '../constants'
-import { useAppKitProvider, useAppKitAccount, useAppKitNetwork, useDisconnect } from '@reown/appkit/vue'
+import { create } from 'zustand'
+import { SUCCESS_MESSAGES } from '@/constants'
+import type { WalletSnapshot, WalletStatus } from '@/types/app'
 
 export interface NetworkConfig {
   chainId: number
@@ -22,8 +18,8 @@ export const SUPPORTED_NETWORKS: Record<number, NetworkConfig> = {
   1: {
     chainId: 1,
     name: 'Ethereum Mainnet',
-    rpcUrl: `${NETWORKS.ETHEREUM.rpcUrl}${ENV.VITE_INFURA_PROJECT_ID}`,
-    blockExplorer: NETWORKS.ETHEREUM.blockExplorer,
+    rpcUrl: 'https://mainnet.infura.io/v3/',
+    blockExplorer: 'https://etherscan.io',
     nativeCurrency: {
       name: 'Ethereum',
       symbol: 'ETH',
@@ -33,8 +29,8 @@ export const SUPPORTED_NETWORKS: Record<number, NetworkConfig> = {
   11155111: {
     chainId: 11155111,
     name: 'Sepolia Testnet',
-    rpcUrl: `${NETWORKS.SEPOLIA.rpcUrl}${ENV.VITE_INFURA_PROJECT_ID}`,
-    blockExplorer: NETWORKS.SEPOLIA.blockExplorer,
+    rpcUrl: 'https://sepolia.infura.io/v3/',
+    blockExplorer: 'https://sepolia.etherscan.io',
     nativeCurrency: {
       name: 'Ethereum',
       symbol: 'ETH',
@@ -54,195 +50,70 @@ export const SUPPORTED_NETWORKS: Record<number, NetworkConfig> = {
   }
 }
 
-export const useWalletStore = defineStore('wallet', () => {
-  // State
-  const isConnected = ref(false)
-  const address = ref('')
-  const chainId = ref(0)
-  const provider = ref<BrowserProvider | null>(null)
-  const signer = ref<JsonRpcSigner | null>(null)
-  const balance = ref('0')
-  const isConnecting = ref(false)
+interface WalletState extends WalletSnapshot {
+  connectMessage: string
+  isConnected: boolean
+  shortAddress: string
+  setSnapshot: (snapshot: Partial<WalletSnapshot>) => void
+  reset: () => void
+}
 
-  const accountInfo = useAppKitAccount()
-  const networkInfo = useAppKitNetwork()
-
-  // watch account changes and reload balance when address becomes available
-  watch(
-    () => accountInfo.value?.address,
-    (addr) => {
-      console.log("addr", addr);
-      if (addr) {
-        connectWallet().then(() => {
-          address.value = addr;
-          updateBalance();
-        });
-      }
-    }
-  )
-
-  watch(
-    () => accountInfo.value?.isConnected,
-    (connected) => {
-      console.log("connected", connected);
-      isConnected.value = connected
-      if (!connected) {
-        localStorage.setItem(STORAGE_KEYS.WALLET_CONNECTED, 'false')
-      }
-    }
-  )
-
-  watch(
-    () => networkInfo.value?.chainId,
-    (newChainId) => {
-      console.log("newChainId", newChainId);
-      if (newChainId) {
-        connectWallet();
-      }
-    }
-  )
-
-  // Computed properties
-  const currentNetwork = computed(() => {
-    return SUPPORTED_NETWORKS[chainId.value] || null
-  })
-
-  const shortAddress = computed(() => {
-    if (!address.value) return ''
-    return `${address.value.slice(0, 6)}...${address.value.slice(-4)}`
-  })
-
-  const isNetworkSupported = computed(() => {
-    return chainId.value in SUPPORTED_NETWORKS
-  })
-
-  // Actions
-  const connectWallet = async () => {
-    const appStore = useAppStore()
-
-    if (isConnecting.value) return false
-
-    try {
-      isConnecting.value = true
-
-      const { walletProvider } = useAppKitProvider('eip155') as { walletProvider?: any }
-      if (!walletProvider) {
-        return false
-      }
-
-      // Create timeout Promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Connection timeout, please check your network or try again later'))
-        }, 30000) // 30 seconds timeout
-      })
-
-      // Create connection Promise
-      const connectPromise = async () => {
-        const web3Provider = new BrowserProvider(walletProvider)
-        const web3Signer = await web3Provider.getSigner()
-        provider.value = markRaw(web3Provider)
-        signer.value = markRaw(web3Signer)
-        chainId.value = Number(networkInfo.value?.chainId)
-        isConnected.value = true
-        return true
-      }
-
-      // Use Promise.race for timeout control
-      await Promise.race([connectPromise(), timeoutPromise])
-
-      appStore.addNotification({
-        type: 'success',
-        title: SUCCESS_MESSAGES.WALLET_CONNECTED,
-        message: `Connected to ${shortAddress.value}`,
-        duration: UI_CONSTANTS.NOTIFICATION_DURATION
-      })
-
-      localStorage.setItem(STORAGE_KEYS.WALLET_CONNECTED, 'true')
-      return true
-    } catch (error: any) {
-      console.error('Failed to connect wallet:', error)
-      appStore.addNotification({
-        type: 'error',
-        title: 'Connection Failed',
-        message: `Failed to connect wallet: ${error.message}`,
-        duration: UI_CONSTANTS.NOTIFICATION_DURATION
-      })
-      return false
-    } finally {
-      isConnecting.value = false
-    }
+function getShortAddress(address: string) {
+  if (!address) {
+    return ''
   }
 
-  // Disconnect wallet
-  const disconnectWallet = () => {
-    const appStore = useAppStore()
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
 
-    provider.value = null
-    signer.value = null
-    address.value = ''
-    chainId.value = 0
-    isConnected.value = false
-    balance.value = '0'
-
-    const disconnect = useDisconnect()
-    disconnect.disconnect()
-
-    appStore.addNotification({
-      type: 'info',
-      title: 'Wallet Disconnected',
-      message: 'Your wallet has been disconnected',
-      duration: UI_CONSTANTS.NOTIFICATION_DURATION
-    })
-
-    localStorage.setItem(STORAGE_KEYS.WALLET_CONNECTED, 'false')
+function getConnectMessage(address: string) {
+  if (!address) {
+    return ''
   }
 
-  const updateBalance = async () => {
-    if (!address.value) return
+  return `${SUCCESS_MESSAGES.WALLET_CONNECTED}: ${getShortAddress(address)}`
+}
 
-    try {
-      if (provider.value) {
-        const userBalance = await provider.value.getBalance(address.value)
-        balance.value = formatEther(userBalance)
-      }
-    } catch (error) {
-      console.error('Failed to update balance:', error)
-      balance.value = '0'
-    }
-  }
-
-  const initializeConnection = async () => {
-    const wasConnected = localStorage.getItem(STORAGE_KEYS.WALLET_CONNECTED)
-
-    if (wasConnected === 'true') {
-      try {
-        await connectWallet()
-      } catch (error) {
-        console.error('Failed to initialize connection:', error)
-      }
-    }
-  }
-
+function makeSnapshot(
+  status: WalletStatus = 'disconnected',
+  address = '',
+  chainId = 0,
+  balance = '0'
+): WalletSnapshot {
   return {
-    // State
-    isConnected,
+    status,
     address,
     chainId,
-    provider,
-    signer,
     balance,
-    isConnecting,
-
-    // Computed properties
-    currentNetwork,
-    shortAddress,
-    isNetworkSupported,
-
-    // Actions
-    connectWallet,
-    disconnectWallet,
-    updateBalance,
-    initializeConnection
+    isConnecting: status === 'connecting',
+    isSupportedNetwork: chainId in SUPPORTED_NETWORKS
   }
-})
+}
+
+export const useWalletStore = create<WalletState>((set, get) => ({
+  ...makeSnapshot(),
+  connectMessage: '',
+  isConnected: false,
+  shortAddress: '',
+  setSnapshot: snapshot => {
+    const nextStatus = snapshot.status ?? get().status
+    const nextAddress = snapshot.address ?? get().address
+    const nextChainId = snapshot.chainId ?? get().chainId
+    const nextBalance = snapshot.balance ?? get().balance
+    const nextSnapshot = makeSnapshot(nextStatus, nextAddress, nextChainId, nextBalance)
+
+    set({
+      ...nextSnapshot,
+      connectMessage: getConnectMessage(nextAddress),
+      isConnected: nextStatus === 'connected' && Boolean(nextAddress),
+      shortAddress: getShortAddress(nextAddress)
+    })
+  },
+  reset: () =>
+    set({
+      ...makeSnapshot(),
+      connectMessage: '',
+      isConnected: false,
+      shortAddress: ''
+    })
+}))

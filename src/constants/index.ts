@@ -418,7 +418,7 @@ export const REGEX_PATTERNS = {
   TRANSACTION_HASH: /^0x[a-fA-F0-9]{64}$/,
   PRIVATE_KEY: /^0x[a-fA-F0-9]{64}$/,
   EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  URL: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/,
+  URL: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/,
   DECIMAL_NUMBER: /^\d*\.?\d+$/,
   INTEGER: /^\d+$/,
   HEX: /^0x[a-fA-F0-9]+$/

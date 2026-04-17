@@ -1,143 +1,118 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { create } from 'zustand'
+import { STORAGE_KEYS } from '@/constants'
+import type { AppLanguage, AppNotification, ThemeMode } from '@/types/app'
 
-// Types
-export interface Notification {
-  id: string
-  type: 'success' | 'warning' | 'error' | 'info'
-  title: string
-  message: string
-  duration?: number
-  timestamp: number
-  read?: boolean
+interface AppState {
+  globalLoading: boolean
+  initialized: boolean
+  language: AppLanguage
+  notifications: AppNotification[]
+  sidebarCollapsed: boolean
+  theme: ThemeMode
+  initializeApp: () => void
+  addNotification: (notification: Omit<AppNotification, 'id' | 'timestamp'>) => string
+  clearNotifications: () => void
+  removeNotification: (id: string) => void
+  setGlobalLoading: (loading: boolean) => void
+  setLanguage: (language: AppLanguage) => void
+  setTheme: (theme: ThemeMode) => void
+  toggleSidebar: () => void
+  toggleTheme: () => void
 }
 
-export const useAppStore = defineStore('app', () => {
-  // State
-  const isDark = ref(false)
-  const globalLoading = ref(false)
-  const language = ref('en')
-  const sidebarCollapsed = ref(false)
-  const notifications = ref<Notification[]>([])
-  
-  // Getters
-  const theme = computed(() => isDark.value ? 'dark' : 'light')
-  const unreadNotifications = computed(() => 
-    notifications.value.filter(n => !n.read)
-  )
-  
-  // Actions
-  const toggleTheme = () => {
-    isDark.value = !isDark.value
-    localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
-    updateThemeClass()
+function applyTheme(theme: ThemeMode) {
+  document.documentElement.classList.toggle('dark', theme === 'dark')
+  document.documentElement.dataset.theme = theme
+}
+
+function detectTheme(): ThemeMode {
+  const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME)
+  if (savedTheme === 'light' || savedTheme === 'dark') {
+    return savedTheme
   }
-  
-  const setTheme = (theme: 'light' | 'dark') => {
-    isDark.value = theme === 'dark'
-    localStorage.setItem('theme', theme)
-    updateThemeClass()
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function detectLanguage(): AppLanguage {
+  const savedLanguage = localStorage.getItem(STORAGE_KEYS.LANGUAGE)
+  if (savedLanguage === 'en' || savedLanguage === 'zh') {
+    return savedLanguage
   }
-  
-  const updateThemeClass = () => {
-    if (isDark.value) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+
+  return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+}
+
+export const useAppStore = create<AppState>((set, get) => ({
+  globalLoading: false,
+  initialized: false,
+  language: 'en',
+  notifications: [],
+  sidebarCollapsed: false,
+  theme: 'light',
+  initializeApp: () => {
+    if (get().initialized) {
+      return
     }
-  }
-  
-  const setLanguage = (lang: string) => {
-    language.value = lang
-    localStorage.setItem('language', lang)
-  }
-  
-  const setGlobalLoading = (loading: boolean) => {
-    globalLoading.value = loading
-  }
-  
-  const toggleSidebar = () => {
-    sidebarCollapsed.value = !sidebarCollapsed.value
-  }
-  
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp'>) => {
-    const id = Date.now().toString()
-    const newNotification: Notification = {
+
+    const theme = detectTheme()
+    const language = detectLanguage()
+    applyTheme(theme)
+    document.documentElement.lang = language
+
+    set({
+      initialized: true,
+      language,
+      theme
+    })
+
+    window
+      .matchMedia('(prefers-color-scheme: dark)')
+      .addEventListener('change', event => {
+        if (!localStorage.getItem(STORAGE_KEYS.THEME)) {
+          get().setTheme(event.matches ? 'dark' : 'light')
+        }
+      })
+  },
+  addNotification: notification => {
+    const id = crypto.randomUUID()
+    const nextNotification: AppNotification = {
       ...notification,
       id,
-      timestamp: Date.now(),
-      read: false
+      timestamp: Date.now()
     }
-    notifications.value.unshift(newNotification)
-    
-    // Auto remove after duration
+
+    set(state => ({
+      notifications: [nextNotification, ...state.notifications]
+    }))
+
     if (notification.duration !== 0) {
-      setTimeout(() => {
-        removeNotification(id)
-      }, notification.duration || 5000)
+      window.setTimeout(() => {
+        get().removeNotification(id)
+      }, notification.duration ?? 5_000)
     }
-    
+
     return id
+  },
+  clearNotifications: () => set({ notifications: [] }),
+  removeNotification: id =>
+    set(state => ({
+      notifications: state.notifications.filter(notification => notification.id !== id)
+    })),
+  setGlobalLoading: loading => set({ globalLoading: loading }),
+  setLanguage: language => {
+    localStorage.setItem(STORAGE_KEYS.LANGUAGE, language)
+    document.documentElement.lang = language
+    set({ language })
+  },
+  setTheme: theme => {
+    localStorage.setItem(STORAGE_KEYS.THEME, theme)
+    applyTheme(theme)
+    set({ theme })
+  },
+  toggleSidebar: () => set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  toggleTheme: () => {
+    const nextTheme = get().theme === 'dark' ? 'light' : 'dark'
+    get().setTheme(nextTheme)
   }
-  
-  const removeNotification = (id: string) => {
-    const index = notifications.value.findIndex(n => n.id === id)
-    if (index > -1) {
-      notifications.value.splice(index, 1)
-    }
-  }
-  
-  const clearNotifications = () => {
-    notifications.value = []
-  }
-  
-  // Initialize from localStorage
-  const initializeApp = () => {
-    // Theme
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme) {
-      setTheme(savedTheme as 'light' | 'dark')
-    } else {
-      // Detect system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setTheme(prefersDark ? 'dark' : 'light')
-    }
-    
-    // Language
-    const savedLanguage = localStorage.getItem('language')
-    if (savedLanguage) {
-      setLanguage(savedLanguage)
-    }
-    
-    // Listen for system theme changes
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      if (!localStorage.getItem('theme')) {
-        setTheme(e.matches ? 'dark' : 'light')
-      }
-    })
-  }
-  
-  return {
-    // State
-    isDark,
-    globalLoading,
-    language,
-    sidebarCollapsed,
-    notifications,
-    
-    // Getters
-    theme,
-    unreadNotifications,
-    
-    // Actions
-    toggleTheme,
-    setTheme,
-    setLanguage,
-    setGlobalLoading,
-    toggleSidebar,
-    addNotification,
-    removeNotification,
-    clearNotifications,
-    initializeApp
-  }
-})
+}))
